@@ -18,8 +18,10 @@ void getTemperature() {
 }
 
 void setup(void) {
-	coreInit();
+	setSSIDwifiAP("Temperature");
 	registrateEvent("/getTemperature",getTemperature);
+	
+	coreInit();
 }
 
 void loop(void) {

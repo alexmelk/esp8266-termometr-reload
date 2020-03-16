@@ -11,8 +11,9 @@
 #include <ArduinoJson.h>
 
 namespace shCore{
-    static ESP8266WebServer server;
-    static WiFiUDP udp;
+
+    static ESP8266WebServer _server;
+    static WiFiUDP _udp;
 
     void registrateEvent(String uri, void(*function)());
     void sendToServer(int code, String contentType, String str);
@@ -49,4 +50,12 @@ namespace shCore{
     File openFile(String Filename);
     void createOrErase(String Filename, String Text);
     void blink(int num, int delayMs);
+
+    //set
+    void setSerialSpeed(int serialSpeed);
+    void setSSIDwifiAP(String ssid);
+    void setPassWiFiAP(String pass);
+    void setUDPport(int port);
+    void setHTTPport(int port);
+    void setOTAname(String name);
 };

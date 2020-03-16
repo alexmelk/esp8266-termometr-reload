@@ -1,23 +1,31 @@
 #include <SmartHomeCore.h>
-const char* www_username      = "admin";
-const char* www_password      = "admin";
-const char* ssidInit	      = "Temperture";
-const char* passwordInit      = "123123123";
-int udpPort                   = 6510;
-int httpPort                  = 80;
-int jsonLength	              = 2048;
-float version                 = 1.0;
-const char* otaHostName       = "Smart Home Module (temperture)";
 
-DynamicJsonDocument json(jsonLength);
-//////////////////////////////////////////////
+//ap config
+String _ssidInit	      	   = "SmartHomeCore";
+String _passwordInit    	   = "123123123";
+int wifiChannel                = 8;
+int maxConnection			   = 1;
+int hiddenWifi				   = 0;
+
+//common config
+int _serialSpeed               = 115200;
+int _udpPort                   = 6510;
+int _httpPort                  = 80;
+int _jsonLength	               = 2048;
+String _otaHostName            = "SmartHomeCore";
+const char* www_username       = "admin";
+const char* www_password       = "admin";
+float version                  = 1.1;
+
+DynamicJsonDocument json(_jsonLength);
+
 void shCore::registrateEvent(String uri, void(*function)())
 {
-	server.on(uri,function);
+	_server.on(uri,function);
 }
 void shCore::sendToServer(int code, String contentType, String str)
 {
-	server.send(code, contentType, str);
+	_server.send(code, contentType, str);
 }
 void shCore::coreInit(void) {
 
@@ -26,13 +34,13 @@ void shCore::coreInit(void) {
 
 	SPIFFS.begin();
   
-	Serial.begin(115200);
+	Serial.begin(_serialSpeed);
   
 	pinMode(LED_BUILTIN, OUTPUT);
 
 	wifiInit();
 
-	udp.begin(udpPort);
+	_udp.begin(_udpPort);
 
 	if (!openFile("devices.conf")) { createOrErase("devices.conf", ""); Serial.println("devices.conf"); };
 
@@ -41,7 +49,7 @@ void shCore::coreInit(void) {
 }
 
 void shCore::coreHandle(void) {
-  server.handleClient();//ждём клиентов
+  _server.handleClient();//ждём клиентов
 	String str = tryToReceive();
 	if (str.length() != 0)
 	{
@@ -51,7 +59,7 @@ void shCore::coreHandle(void) {
 		if (str == "initial")
 		{
 			Serial.println("tryToSend to Mobile");
-			tryToSend(udp.remoteIP(), udpPort, WiFi.localIP()? WiFi.localIP().toString(): WiFi.softAPIP().toString());
+			tryToSend(_udp.remoteIP(), _udpPort, WiFi.localIP()? WiFi.localIP().toString(): WiFi.softAPIP().toString());
 
 			blink(4, 5);
 		}
@@ -73,14 +81,14 @@ void shCore::wifiInit()
 		IPAddress apIP(77, 77, 77, 77);
 		IPAddress subnet(255, 255, 255, 0);
 		WiFi.softAPConfig(apIP, apIP, subnet);
-		bool connect  = WiFi.softAP(ssidInit, passwordInit,8,0,1);
+		bool connect  = WiFi.softAP(_ssidInit, _passwordInit, wifiChannel, hiddenWifi, maxConnection);
 		IPAddress myIP = WiFi.softAPIP();
 		if(connect){Serial.println("Успешно");} else{Serial.println("Ошибка");}
 		Serial.println("AP IP address: ");
 		Serial.println(myIP);
-		server.on("/", htmlAccessPoint);
-		server.on("/getWifiList", sendWifiList);
-		server.on("/configure", configWiFi);
+		_server.on("/", htmlAccessPoint);
+		_server.on("/getWifiList", sendWifiList);
+		_server.on("/configure", configWiFi);
 
 		blink(2, 100);
 	}
@@ -115,12 +123,12 @@ void shCore::wifiInit()
 		Serial.println(WiFi.localIP());
 		blink(5, 100);
 	}
-	server.onNotFound(handleNotFound);          //  Cтраница ошибки
-	server.on("/", html);
-	server.on("/clearAll", clearAll);
-	server.on("/info", api);
+	_server.onNotFound(handleNotFound);          //  Cтраница ошибки
+	_server.on("/", html);
+	_server.on("/clearAll", clearAll);
+	_server.on("/info", api);
 	filesHandling();
-	server.begin(httpPort);
+	_server.begin(_httpPort);
 }
 //события http-сервера
 void shCore::htmlAccessPoint()
@@ -131,33 +139,33 @@ void shCore::htmlAccessPoint()
 	}
 	else {
 		Serial.println("send page ok! ");
-		Serial.print(server.uri());
+		Serial.print(_server.uri());
 		Serial.print(" ");
 		Serial.println(f.size());
 	}
-	server.streamFile(f,"text/html");
+	_server.streamFile(f,"text/html");
 	f.close();
 }
 void shCore::handleNotFound(){ //страница ошибок
  
   String message = "File Not Found\n\n";
   message += "URI: ";
-  message += server.uri();
+  message += _server.uri();
   message += "\nMethod: ";
-  message += (server.method() == HTTP_GET)?"GET":"POST";
+  message += (_server.method() == HTTP_GET)?"GET":"POST";
   message += "\nArguments: ";
-  message += server.args();
+  message += _server.args();
   message += "\n";
-  for (int i=0; i<server.args(); i++){
-    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
+  for (int i=0; i<_server.args(); i++){
+    message += " " + _server.argName(i) + ": " + _server.arg(i) + "\n";
   }
-  server.send(404, "text/plain", message);
+  _server.send(404, "text/plain", message);
  
 }
 
 void shCore::api(){         
- if(!server.authenticate(www_username, www_password))
- return server.requestAuthentication();   
+ if(!_server.authenticate(www_username, www_password))
+ return _server.requestAuthentication();   
  String api = "Smart Home Module (temperature)<br><br>";
  api += "WiFi RSSI<br>";
  api += WiFi.RSSI();
@@ -176,11 +184,11 @@ void shCore::api(){
  api += "<br>";
  api += "<button onclick='fetch(\"/clearAll\");'>Reset Config</button>";
  api += "<br>";
- server.send(200, "text/html", api);
+ _server.send(200, "text/html", api);
 };
 void shCore::html() {
-	//if (!server.authenticate(www_username, www_password))
-	//	return server.requestAuthentication();
+	//if (!_server.authenticate(www_username, www_password))
+	//	return _server.requestAuthentication();
 		File f = SPIFFS.open("/index.html", "r");
 		if (!f) {
 			Serial.println("file open failed");
@@ -188,11 +196,11 @@ void shCore::html() {
 		else {
 
 			Serial.println("send page ok! ");
-			Serial.print(server.uri());
+			Serial.print(_server.uri());
 			Serial.print(" ");
 			Serial.println(f.size());
 		}
-		server.streamFile(f,"text/html");
+		_server.streamFile(f,"text/html");
 		f.close();
 
 }
@@ -202,7 +210,7 @@ void shCore::clearAll()
 	SPIFFS.remove("/device.conf");
 	SPIFFS.remove("/devices.conf");
 
-	server.send(200, "text/html", "clear Ok");
+	_server.send(200, "text/html", "clear Ok");
 	Serial.println("clear Ok");
 
 	WiFi.disconnect();
@@ -230,34 +238,34 @@ void shCore::sendWifiList()
 
 		}
 	}
-	server.send(200, "text/plain", http);
+	_server.send(200, "text/plain", http);
 }
 
 //общие функции
 String shCore::tryToReceive()
 {
-	int udpPacketSize = udp.parsePacket();
+	int udpPacketSize = _udp.parsePacket();
 	String str;
 	if (udpPacketSize)
 	{
-		str = udp.readString();
+		str = _udp.readString();
 	}
 	return str;
 }
 void shCore::tryToSend(IPAddress remoteIp, int udpPort, String text)
 {
-	udp.beginPacket(remoteIp, udpPort);
+	_udp.beginPacket(remoteIp, udpPort);
 	char buf[256];
 	text.toCharArray(buf, 256, 0);
-	udp.write(buf);
-	udp.endPacket();
+	_udp.write(buf);
+	_udp.endPacket();
 
 }
 void shCore::configWiFi()
 {
 	String str;
-	String wifiSSID = server.arg("SSID");
-	String wifiPass = server.arg("pass");
+	String wifiSSID = _server.arg("SSID");
+	String wifiPass = _server.arg("pass");
 	json["wifiSSID"] = wifiSSID;
 	json["wifiPass"] = wifiPass;
 	serializeJson(json, str);
@@ -278,28 +286,28 @@ void shCore::filesHandling()
 	Dir dir = SPIFFS.openDir("/");
 	Serial.println("Add file to listeaner");
 	while (dir.next()) {
-		server.on(dir.fileName(), fileDownload);
+		_server.on(dir.fileName(), fileDownload);
 		Serial.println(dir.fileName());
 	}
 }
 void shCore::fileDownload()
 {
-	File f = SPIFFS.open(server.uri(), "r");
+	File f = SPIFFS.open(_server.uri(), "r");
 	if (!f) {
 		Serial.println("file open failed");
-		Serial.println(server.uri());
+		Serial.println(_server.uri());
 	}
 	else { 
 		Serial.println("send page ok! "); 
-		Serial.print(server.uri());
+		Serial.print(_server.uri());
 		Serial.print(" ");
 		Serial.println(f.size());
 	}
-	server.streamFile(f, getContentType(server.uri()),HTTP_GET);
+	_server.streamFile(f, getContentType(_server.uri()),HTTP_GET);
 	f.close();
 }
 String shCore::getContentType(String filename) {
-	if (server.hasArg("download")) return "application/octet-stream";
+	if (_server.hasArg("download")) return "application/octet-stream";
 	else if (filename.endsWith(".htm")) return "text/html";
 	else if (filename.endsWith(".html")) return "text/html";
 	else if (filename.endsWith(".css")) return "text/css";
@@ -344,3 +352,11 @@ void shCore::blink(int num, int delayMs)
 	}
 
 }
+
+//set
+void shCore::setSerialSpeed(int serialSpeed){_serialSpeed = serialSpeed;}
+void shCore::setSSIDwifiAP(String ssid){_ssidInit = ssid;}
+void shCore::setPassWiFiAP(String pass){_passwordInit = pass;}
+void shCore::setUDPport(int port){_udpPort = port;}
+void shCore::setHTTPport(int port){_httpPort = port;}
+void shCore::setOTAname(String name){_otaHostName = name;}
