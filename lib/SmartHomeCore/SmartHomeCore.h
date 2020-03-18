@@ -58,4 +58,6 @@ namespace shCore{
     void setUDPport(int port);
     void setHTTPport(int port);
     void setOTAname(String name);
+    void setMainPage(String pageName);
+    void sendMainPage();
 };

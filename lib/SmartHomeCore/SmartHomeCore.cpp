@@ -15,9 +15,11 @@ int _jsonLength	               = 2048;
 String _otaHostName            = "SmartHomeCore";
 const char* www_username       = "admin";
 const char* www_password       = "admin";
-float version                  = 1.1;
+float version                  = 1.2;
 
 DynamicJsonDocument json(_jsonLength);
+IPAddress apIP(77, 77, 77, 77);
+IPAddress subnet(255, 255, 255, 0);
 
 void shCore::registrateEvent(String uri, void(*function)())
 {
@@ -78,8 +80,6 @@ void shCore::wifiInit()
 	File f = openFile("wifiConf.conf");
 	if (!f)
 	{
-		IPAddress apIP(77, 77, 77, 77);
-		IPAddress subnet(255, 255, 255, 0);
 		WiFi.softAPConfig(apIP, apIP, subnet);
 		bool connect  = WiFi.softAP(_ssidInit, _passwordInit, wifiChannel, hiddenWifi, maxConnection);
 		IPAddress myIP = WiFi.softAPIP();
