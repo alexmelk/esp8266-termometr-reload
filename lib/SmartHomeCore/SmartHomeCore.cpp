@@ -6,6 +6,7 @@ String _passwordInit    	   = "123123123";
 int wifiChannel                = 8;
 int maxConnection			   = 1;
 int hiddenWifi				   = 0;
+String _mainPage 			   = "htmlAccessPoint.html";
 
 //common config
 int _serialSpeed               = 115200;
@@ -15,8 +16,9 @@ int _jsonLength	               = 2048;
 String _otaHostName            = "SmartHomeCore";
 const char* www_username       = "admin";
 const char* www_password       = "admin";
-float version                  = 1.2;
+float version                  = 1.4;
 
+FtpServer ftp;
 DynamicJsonDocument json(_jsonLength);
 IPAddress apIP(77, 77, 77, 77);
 IPAddress subnet(255, 255, 255, 0);
@@ -29,6 +31,11 @@ void shCore::sendToServer(int code, String contentType, String str)
 {
 	_server.send(code, contentType, str);
 }
+String shCore::getFromServer(String arg)
+{
+	return _server.arg(arg);
+}
+
 void shCore::coreInit(void) {
 
 	//ArduinoOTA.setHostname(otaHostName);
@@ -37,6 +44,8 @@ void shCore::coreInit(void) {
 	SPIFFS.begin();
   
 	Serial.begin(_serialSpeed);
+
+	Serial.setTimeout(10);
   
 	pinMode(LED_BUILTIN, OUTPUT);
 
@@ -46,12 +55,17 @@ void shCore::coreInit(void) {
 
 	if (!openFile("devices.conf")) { createOrErase("devices.conf", ""); Serial.println("devices.conf"); };
 
-	Serial.println("starting:");
+	Serial.println("System starting:");
+
+	ftp.begin(www_username,www_password);
+
+	Serial.println("FTP enabled.");
 
 }
 
 void shCore::coreHandle(void) {
   _server.handleClient();//ждём клиентов
+  ftp.handleFTP(); 
 	String str = tryToReceive();
 	if (str.length() != 0)
 	{
@@ -86,7 +100,7 @@ void shCore::wifiInit()
 		if(connect){Serial.println("Успешно");} else{Serial.println("Ошибка");}
 		Serial.println("AP IP address: ");
 		Serial.println(myIP);
-		_server.on("/", htmlAccessPoint);
+		
 		_server.on("/getWifiList", sendWifiList);
 		_server.on("/configure", configWiFi);
 
@@ -122,11 +136,12 @@ void shCore::wifiInit()
 		}
 		Serial.println(WiFi.localIP());
 		blink(5, 100);
+		setMainPage("index.html");
 	}
 	_server.onNotFound(handleNotFound);          //  Cтраница ошибки
-	_server.on("/", html);
 	_server.on("/clearAll", clearAll);
 	_server.on("/info", api);
+	_server.on("/", sendMainPage);
 	filesHandling();
 	_server.begin(_httpPort);
 }
@@ -354,9 +369,36 @@ void shCore::blink(int num, int delayMs)
 }
 
 //set
-void shCore::setSerialSpeed(int serialSpeed){_serialSpeed = serialSpeed;}
+void shCore::setSerialSpeed(int serialSpeed){
+	_serialSpeed = serialSpeed; 
+	if(Serial)
+	{
+		Serial.end();
+		Serial.begin(_serialSpeed);
+	}
+	else{Serial.begin(_serialSpeed);}
+}
 void shCore::setSSIDwifiAP(String ssid){_ssidInit = ssid;}
 void shCore::setPassWiFiAP(String pass){_passwordInit = pass;}
 void shCore::setUDPport(int port){_udpPort = port;}
 void shCore::setHTTPport(int port){_httpPort = port;}
 void shCore::setOTAname(String name){_otaHostName = name;}
+void shCore::setMainPage(String pageName)
+{
+	_mainPage = pageName;
+	_server.on("/",sendMainPage);
+}
+void shCore::sendMainPage(){
+	File f = SPIFFS.open("/"+_mainPage, "r");
+	if (!f) {
+		Serial.println("file open failed");
+	}
+	else {
+		Serial.println("send page ok! ");
+		Serial.print(_mainPage);
+		Serial.print(" ");
+		Serial.println(f.size());
+	}
+	_server.streamFile(f,"text/html");
+	f.close();
+}

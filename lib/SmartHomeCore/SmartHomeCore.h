@@ -9,6 +9,7 @@
 #include <ArduinoOTA.h>
 #include <ArduinoJson.hpp>
 #include <ArduinoJson.h>
+#include <ESP8266FtpServer.h>
 
 namespace shCore{
 
@@ -17,7 +18,7 @@ namespace shCore{
 
     void registrateEvent(String uri, void(*function)());
     void sendToServer(int code, String contentType, String str);
-
+    String getFromServer(String arg);
     void coreInit(void);
     void coreHandle(void);
     void wifiInit(void);
